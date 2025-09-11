@@ -76,26 +76,30 @@ git_status_print() {
         git_branch_display="${git_branch_display:0:(git_status_branch_max_length - 1)}…"
     fi
 
-    [[ -n $git_branch_icon ]] &&
-        echo -n "${git_status_icon_style}${git_branch_icon} "
-    echo -n "${git_status_branch_style}${git_branch_display}"
+    if [[ $git_action_name != "rebase" ]]; then
 
-    if [[ -n $git_remote_branch ]]; then
+        [[ -n $git_branch_icon ]] &&
+            echo -n "${git_status_icon_style}${git_branch_icon} "
+        echo -n "${git_status_branch_style}${git_branch_display}"
 
-        git_remote_branch_display="${git_remote_branch}"
-        if [[ $git_status_remote_max_length -gt 0 ]] &&
-            [[ ${#git_remote_branch_display} -gt $git_status_remote_max_length ]]; then
-            git_remote_branch_display="${git_remote_branch_display:0:(git_status_remote_max_length - 1)}…"
-            if [[ ${#git_remote_branch_display} -lt $((${#git_remote} + 2)) ]]; then
-                git_remote_branch_display="${git_remote}/…"
+        if [[ -n $git_remote_branch ]]; then
+
+            git_remote_branch_display="${git_remote_branch}"
+            if [[ $git_status_remote_max_length -gt 0 ]] &&
+                [[ ${#git_remote_branch_display} -gt $git_status_remote_max_length ]]; then
+                git_remote_branch_display="${git_remote_branch_display:0:(git_status_remote_max_length - 1)}…"
+                if [[ ${#git_remote_branch_display} -lt $((${#git_remote} + 2)) ]]; then
+                    git_remote_branch_display="${git_remote}/…"
+                fi
             fi
+
+            echo -n "${git_status_remote_prefix}${git_status_remote_style}"
+            echo -n "${git_remote_branch_display}"
+
+            #echo -n "${git_divergence_icon}"
+            echo -n "${git_divergence}"
         fi
-
-        echo -n "${git_status_remote_prefix}${git_status_remote_style}"
-        echo -n "${git_remote_branch_display}"
-
-        #echo -n "${git_divergence_icon}"
-        echo -n "${git_divergence}"
+        echo -n " "
     fi
 
     echo -n "${git_action}"
