@@ -175,24 +175,33 @@ __git_set_divergence() {
     git_divergence_icon="${icon}"
 }
 
-# Set the $git_action variable
+# Set the following variables:
+#  - $git_action_name
+#  - $git_action
 __git_set_action() {
     # External affected vars
+    git_action_name=
     git_action=
 
     local gitAction="" rebaseStep="" rebaseTotal="" rebaseHeadName="" rebaseOnto="" rebaseOntoBranch=""
 
     __git_extract_action_info
 
-    case "${gitAction}" in
+    git_action_name="${gitAction}"
+
+    case "${git_action_name}" in
         rebase)
             local rebaseTarget rebaseProgress doneColor
 
-            doneColor=${git_status_rebase_progress_style}
-            [[ $git_conflicts -gt 0 ]] && doneColor=${git_status_conflict_style}
+            [[ $git_conflicts -gt 0 ]] &&
+                doneColor=${git_status_conflict_style} ||
+                doneColor=${git_status_rebase_progress_style}
 
             rebaseTarget="${git_status_rebase_head_style}${rebaseHeadName}${git_status_default_style} ↷ ${git_status_rebase_target_style}${rebaseOntoBranch}${git_status_default_style}"
-            rebaseProgress="${doneColor}${rebaseStep}${git_status_default_style}/${rebaseTotal}"
+
+            [[ -n $rebaseStep && -n $rebaseTotal ]] &&
+                rebaseProgress="${doneColor}${rebaseStep}${git_status_default_style}/${rebaseTotal}" ||
+                rebaseProgress="󱩽 " # nf-md-text_box_edit_outline
 
             git_action="${git_status_rebase_icon_style}${git_status_action_rebase_icon}"
             git_action="${git_action}${rebaseTarget}${git_status_default_style} ${rebaseProgress}"

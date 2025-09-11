@@ -59,6 +59,7 @@ git_status_init() {
 
     __git_set_divergence $git_ahead $git_behind $git_detached
 
+    git_action_name=""
     git_action=""
 
     __git_set_action
