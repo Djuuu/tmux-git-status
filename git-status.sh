@@ -99,7 +99,8 @@ git_status_print() {
             #echo -n "${git_divergence_icon}"
             echo -n "${git_divergence}"
         fi
-        echo -n " "
+
+        [[ -n ${git_action} ]] && echo -n " "
     fi
 
     echo -n "${git_action}"

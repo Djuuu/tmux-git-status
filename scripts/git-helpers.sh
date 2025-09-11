@@ -200,10 +200,10 @@ __git_set_action() {
             rebaseTarget="${git_status_rebase_head_style}${rebaseHeadName}${git_status_default_style} ↷ ${git_status_rebase_target_style}${rebaseOntoBranch}${git_status_default_style}"
 
             [[ -n $rebaseStep && -n $rebaseTotal ]] &&
-                rebaseProgress="${doneColor}${rebaseStep}${git_status_default_style}/${rebaseTotal}" ||
+                rebaseProgress="${doneColor}${rebaseStep}${git_status_default_style}/${rebaseTotal} " ||
                 rebaseProgress="󱩽 " # nf-md-text_box_edit_outline
 
-            git_action="${git_status_rebase_icon_style}${git_status_action_rebase_icon}"
+            git_action=" ${git_status_rebase_icon_style}${git_status_action_rebase_icon}"
             git_action="${git_action}${rebaseTarget}${git_status_default_style} ${rebaseProgress}"
             ;;
         merge)       git_action="${git_status_action_merge_icon}"  ;;
