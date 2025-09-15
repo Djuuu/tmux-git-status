@@ -5,7 +5,7 @@
 ##
 
 # Store statuses in the following variables:
-#  - $_branchLine (first line of `git status -sb`)
+#  - $_status_branch_line (first line of `git status -sb`)
 #  - $git_untracked
 #  - $git_changed
 #  - $git_deleted
@@ -13,7 +13,7 @@
 #  - $git_conflicts
 __git_extract_statuses() {
     # External affected vars
-    _branchLine=
+    _status_branch_line=
     git_untracked=
     git_changed=
     git_deleted=
@@ -22,11 +22,22 @@ __git_extract_statuses() {
 
     local statusLine status
 
+    local statusCommand=(
+        "git"
+        "--no-optional-locks"
+        "status"
+        "--porcelain"
+        "--branch"
+    )
+    if [[ $git_status_ignore_submodules == true ]]; then
+        statusCommand+=('--ignore-submodules')
+    fi
+
     while IFS='' read -r statusLine || [[ -n "${statusLine}" ]]; do
         status="${statusLine:0:2}"
         while [[ -n ${status} ]]; do
             case "${status}" in
-                \#\#) _branchLine="${statusLine/\.\.\./^}"; break ;;
+                \#\#) _status_branch_line="${statusLine/\.\.\./^}"; break ;;
 
                 \?\?) ((git_untracked++)); break ;;
                 U?)   ((git_conflicts++)); break ;;
@@ -45,20 +56,21 @@ __git_extract_statuses() {
             esac
             status="${status:0:(${#status}-1)}"
         done
-    done <<< "$(
-        LANG=C git \
-            --no-optional-locks \
-            status \
-            --ignore-submodules \
-            --porcelain \
-            --branch \
-            2>/dev/null
-    )"
+    done <<< "$(LANG=C "${statusCommand[@]}" 2>/dev/null)"
+
+    if [[ $git_status_state_show_stash == true ]]; then
+        local stashLine
+        if [[ -f "${gitDir}/logs/refs/stash" ]]; then
+            while IFS='' read -r stashLine || [[ -n "$stashLine" ]]; do
+                ((git_stashes++))
+            done < "${gitDir}/logs/refs/stash"
+        fi
+    fi
 }
 
-# Store current branch & remote info in variables:
+# Store current branch & upstream info in variables:
 #  - $git_branch
-#  - $git_remote_branch
+#  - $git_upstream_branch
 #  - $git_remote
 #  - $git_branch_icon
 #  - $git_ahead
@@ -93,13 +105,13 @@ __git_extract_status_info() {
             upstream="${fields[0]}"
             upstream="${upstream% }"
 
-            local remote_field
-            for remote_field in "${fields[@]}"; do
-                if [[ "${remote_field}" == "ahead "* ]]; then
-                    git_ahead="${remote_field:6}"
+            local upstream_field
+            for upstream_field in "${fields[@]}"; do
+                if [[ "${upstream_field}" == "ahead "* ]]; then
+                    git_ahead="${upstream_field:6}"
                 fi
-                if [[ "${remote_field}" == "behind "* ]] || [[ "${remote_field}" == " behind "* ]]; then
-                    git_behind="${remote_field:7}"
+                if [[ "${upstream_field}" == "behind "* ]] || [[ "${upstream_field}" == " behind "* ]]; then
+                    git_behind="${upstream_field:7}"
                     git_behind="${git_behind# }"
                 fi
             done
@@ -109,10 +121,10 @@ __git_extract_status_info() {
     if [[ $git_detached -eq 1 ]]; then
         git_branch_icon="${git_status_detached_icon}"
     else
-        git_remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name "${git_branch}@{u}" 2>/dev/null)
+        git_upstream_branch=$(git rev-parse --abbrev-ref --symbolic-full-name "${git_branch}@{u}" 2>/dev/null)
 
-        [[ -n $git_remote_branch ]] &&
-            git_remote="${git_remote_branch:0:-(${#git_branch}+1)}" ||
+        [[ -n $git_upstream_branch ]] &&
+            git_remote="${git_upstream_branch:0:-(${#git_branch}+1)}" ||
             git_remote=
 
         local remoteUrl remoteIcon=""
@@ -121,7 +133,9 @@ __git_extract_status_info() {
             if   [[ $remoteUrl == *"github.com"*    ]]; then remoteIcon="${git_status_github_icon}"
             elif [[ $remoteUrl == *"gitlab.com"*    ]]; then remoteIcon="${git_status_gitlab_icon}"
             elif [[ $remoteUrl == *"bitbucket.org"* ]]; then remoteIcon="${git_status_bitbucket_icon}"
-            else                                             remoteIcon="${git_status_forgejo_icon}"
+            elif [[ $remoteUrl == *"codeberg.org"*  ]]; then remoteIcon="${git_status_forgejo_icon}"
+            else
+                remoteIcon="${git_status_default_remote_icon}"
             fi
             git_branch_icon=${remoteIcon}
         fi
@@ -130,7 +144,6 @@ __git_extract_status_info() {
 
 # Set the following variable:
 #  - $git_divergence
-#  - $git_divergence_icon
 __git_set_divergence() {
     local ahead=${1:-0}
     local behind=${2:-0}
@@ -138,41 +151,49 @@ __git_set_divergence() {
 
     # External affected vars
     git_divergence=
-    git_divergence_icon=
 
     if [[ $detached -eq 1 ]]; then
         return
     fi
 
     local icon
-    local divergence
 
-    local a b
-    if [[ $git_status_show_remote_counters -eq 1 ]]; then
+    if [[ ${git_status_divergence_mode} == "single" ]]; then
+        if [[ $ahead -gt 0 && $behind -eq 0 ]]; then
+            icon=" $git_status_divergence_single_ahead_icon"
+        elif [[ $ahead -eq 0 && $behind -gt 0 ]]; then
+            icon=" $git_status_divergence_single_behind_icon"
+        elif [[ $ahead -gt 0 && $behind -gt 0 ]]; then
+            icon=" $git_status_divergence_single_diverged_icon"
+        fi
+        git_divergence="${icon}"
+        return
+    fi
+
+    local divergence a b
+    if [[ $git_status_divergence_mode == "detailed" ]]; then
         a=${ahead}
         b=${behind}
     fi
 
     if [[ $ahead -gt 0 && $behind -eq 0 ]]; then
-        icon="$git_status_divergence_ahead_icon"
-
         divergence=" ${git_status_ahead_icon}${a}"
-
     elif [[ $ahead -eq 0 && $behind -gt 0 ]]; then
-        icon="$git_status_divergence_behind_icon"
-
         divergence=" ${git_status_behind_icon}${b}"
-
     elif [[ $ahead -gt 0 && $behind -gt 0 ]]; then
-        icon="$git_status_divergence_diverged_icon"
-
-        divergence=" ${git_status_ahead_icon}${a}"
-        divergence="${divergence}${git_status_ahead_behind_separator}"
-        divergence="${divergence}${git_status_behind_icon}${b}"
+        divergence=" "
+        if [[ $git_status_divergence_swap == true ]]; then
+            divergence="${divergence}${git_status_behind_icon}${b}"
+            divergence="${divergence}${git_status_divergence_separator}"
+            divergence="${divergence}${git_status_ahead_icon}${a}"
+        else
+            divergence="${divergence}${git_status_ahead_icon}${a}"
+            divergence="${divergence}${git_status_divergence_separator}"
+            divergence="${divergence}${git_status_behind_icon}${b}"
+        fi
     fi
 
     git_divergence="${divergence}"
-    git_divergence_icon="${icon}"
 }
 
 # Set the following variables:
@@ -183,27 +204,37 @@ __git_set_action() {
     git_action_name=
     git_action=
 
-    local gitAction="" rebaseStep="" rebaseTotal="" rebaseHeadName="" rebaseOnto="" rebaseOntoBranch=""
+    local rebaseStep="" rebaseTotal="" rebaseHeadName="" rebaseOnto="" rebaseOntoBranch=""
 
     __git_extract_action_info
-
-    git_action_name="${gitAction}"
 
     case "${git_action_name}" in
         rebase)
             local rebaseTarget rebaseProgress doneColor
 
             [[ $git_conflicts -gt 0 ]] &&
-                doneColor=${git_status_conflict_style} ||
+                doneColor=${git_status_rebase_conflict_style} ||
                 doneColor=${git_status_rebase_progress_style}
 
-            rebaseTarget="${git_status_rebase_head_style}${rebaseHeadName}${git_status_default_style} ↷ ${git_status_rebase_target_style}${rebaseOntoBranch}${git_status_default_style}"
+            local rebaseHeadNameDisplay="${rebaseHeadName}"
+            local rebaseOntoBranchDisplay="${rebaseOntoBranch}"
+            if [[ $git_status_branch_max_length -gt 0 ]]; then
+                [[ ${#rebaseHeadNameDisplay} -gt $git_status_branch_max_length ]] &&
+                    rebaseHeadNameDisplay="${rebaseHeadNameDisplay:0:(git_status_branch_max_length - 1)}…"
+                [[ ${#rebaseOntoBranchDisplay} -gt $git_status_branch_max_length ]] &&
+                    rebaseOntoBranchDisplay="${rebaseOntoBranchDisplay:0:(git_status_branch_max_length - 1)}…"
+            fi
+
+            rebaseTarget=
+            rebaseTarget="${rebaseTarget}${git_status_rebase_head_style}${rebaseHeadNameDisplay}${git_status_default_style}"
+            rebaseTarget="${rebaseTarget}${git_status_rebase_head_target_separator}"
+            rebaseTarget="${rebaseTarget}${git_status_rebase_target_style}${rebaseOntoBranchDisplay}${git_status_default_style}"
 
             [[ -n $rebaseStep && -n $rebaseTotal ]] &&
                 rebaseProgress="${doneColor}${rebaseStep}${git_status_default_style}/${rebaseTotal} " ||
-                rebaseProgress="󱩽 " # nf-md-text_box_edit_outline
+                rebaseProgress="${git_status_rebase_interactive_edit_icon}"
 
-            git_action=" ${git_status_rebase_icon_style}${git_status_action_rebase_icon}"
+            git_action="${git_status_action_rebase_icon}"
             git_action="${git_action}${rebaseTarget}${git_status_default_style} ${rebaseProgress}"
             ;;
         merge)       git_action="${git_status_action_merge_icon}"  ;;
@@ -219,7 +250,7 @@ __git_set_action() {
 }
 
 # Extract the following variables:
-#  - $gitAction
+#  - $git_action_name
 #  - $rebaseStep
 #  - $rebaseTotal
 #  - $rebaseHeadName
@@ -227,10 +258,12 @@ __git_set_action() {
 #  - $rebaseOntoBranch
 __git_extract_action_info() {
     # External affected vars
-    gitAction=; rebaseStep=; rebaseTotal=; rebaseHeadName=; rebaseOnto=; rebaseOntoBranch=;
+
+    git_action_name=
+    rebaseStep=; rebaseTotal=; rebaseHeadName=; rebaseOnto=; rebaseOntoBranch=;
 
     if [[ -d "${gitDir}/rebase-merge" ]]; then
-        gitAction="rebase"
+        git_action_name="rebase"
 
         __git_readval "${gitDir}/rebase-merge/msgnum"    rebaseStep
         __git_readval "${gitDir}/rebase-merge/end"       rebaseTotal
@@ -248,7 +281,7 @@ __git_extract_action_info() {
         __git_readval "${gitDir}/rebase-apply/last" rebaseTotal
 
         if [[ -f "${gitDir}/rebase-apply/rebasing" ]]; then
-            gitAction="rebase"
+            git_action_name="rebase"
             __git_readval "${gitDir}/rebase-apply/head-name" rebaseHeadName
             __git_readval "${gitDir}/rebase-apply/onto"      rebaseOnto # TODO: check
 
@@ -261,10 +294,10 @@ __git_extract_action_info() {
         return
     fi
 
-    if   [[ -f "${gitDir}/MERGE_HEAD"       ]]; then gitAction="merge"
-    elif [[ -f "${gitDir}/CHERRY_PICK_HEAD" ]]; then gitAction="cherry-pick"
-    elif [[ -f "${gitDir}/REVERT_HEAD"      ]]; then gitAction="revert"
-    elif [[ -f "${gitDir}/BISECT_LOG"       ]]; then gitAction="bisect"
+    if   [[ -f "${gitDir}/MERGE_HEAD"       ]]; then git_action_name="merge"
+    elif [[ -f "${gitDir}/CHERRY_PICK_HEAD" ]]; then git_action_name="cherry-pick"
+    elif [[ -f "${gitDir}/REVERT_HEAD"      ]]; then git_action_name="revert"
+    elif [[ -f "${gitDir}/BISECT_LOG"       ]]; then git_action_name="bisect"
     fi
 }
 
@@ -275,14 +308,9 @@ __git_set_state() {
 
     local git_stateA=()
 
-    if [[ $git_untracked -eq 0 && $git_changed -eq 0 && $git_deleted -eq 0 && $git_staged -eq 0 && $git_conflicts -eq 0 ]]; then
-        git_state="${git_status_state_prefix}${git_status_state_clean_icon}"
-        return
-    fi
-
     local ss ch dl ut md sg cf
-    if [[ $git_status_show_state_counters -eq 1 ]]; then
-        ss="${git_stashed}"
+    if [[ $git_status_show_state_counters == true ]]; then
+        ss="${git_stashes}"
         ch="${git_changed}"
         dl="${git_deleted}"
         ut="${git_untracked}"
@@ -291,14 +319,20 @@ __git_set_state() {
         cf="${git_conflicts}"
     fi
 
-    if [[ $git_status_state_show_stashed -eq 1 ]] && [[ $git_stashed -gt 0 ]]; then
-        git_stateA+=("${git_status_state_stashed_icon}${ss}")
+    if [[ $git_status_state_show_stash == true ]] && [[ $git_stashes -gt 0 ]]; then
+        git_stateA+=("${git_status_state_stashes_icon}${ss}")
+    fi
+
+    if [[ $git_untracked -eq 0 && $git_changed -eq 0 && $git_deleted -eq 0 && $git_staged -eq 0 && $git_conflicts -eq 0 ]]; then
+        if [[ -n $git_status_state_clean_icon ]]; then
+            git_stateA+=("${git_status_state_clean_icon}")
+        fi
     fi
 
     case "${git_status_state_mode}" in
         detail*)
-            [[ $git_changed   -gt 0 ]] && git_stateA+=("${git_status_state_changed_icon}${ch}")
             [[ $git_deleted   -gt 0 ]] && git_stateA+=("${git_status_state_deleted_icon}${dl}")
+            [[ $git_changed   -gt 0 ]] && git_stateA+=("${git_status_state_changed_icon}${ch}")
             [[ $git_untracked -gt 0 ]] && git_stateA+=("${git_status_state_untracked_icon}${ut}")
             [[ $git_staged    -gt 0 ]] && git_stateA+=("${git_status_state_staged_icon}${sg}")
             [[ $git_conflicts -gt 0 ]] && git_stateA+=("${git_status_state_conflict_icon}${cf}")
@@ -315,13 +349,15 @@ __git_set_state() {
             ;;
     esac
 
-    if [[ $git_status_show_state_counters -eq 1 ]]; then
+    if [[ $git_status_show_state_counters == true ]]; then
         git_state=${git_stateA[*]} # Join with spaces
     else
         git_state=$(IFS=; echo "${git_stateA[*]}") # Join without spaces
     fi
 
-    [[ -n $git_state ]] && git_state="${git_status_state_prefix}${git_state% } "
+    if [[ -n $git_state ]]; then
+        git_state="${git_status_state_prefix}${git_state}"
+    fi
 }
 
 ##
