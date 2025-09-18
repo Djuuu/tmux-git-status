@@ -100,6 +100,18 @@ Most of the icons and styles used by this module are customizable (see [configur
   | Forgejo     | `codeberg.org`  | ![forgejo icon](docs/img/git-status-branch-icon-forgejo.png)     |
   | default     | `*`             | ![default icon](docs/img/git-status-branch-icon-default.png)     |
 
+  3 custom remote patterns can also be defined:
+  ```
+  set -gq @git_status_custom_remote_1_pattern "git.example.dev"
+  set -gq @git_status_custom_remote_1_icon    "" # nf-linux-forgejo
+
+  set -gq @git_status_custom_remote_2_pattern "gitea.example.net"
+  set -gq @git_status_custom_remote_2_icon    " " # nf-linux-gitea
+  
+  set -gq @git_status_custom_remote_3_pattern "gitlab.example.com"
+  set -gq @git_status_custom_remote_3_icon    "" # nf-seti-gitlab
+  ```
+
 * Detached state  
   ![detached head icon](docs/img/git-status-branch-icon-detached.png)
   
@@ -277,6 +289,13 @@ set -gq @git_status_gitlab_icon         "" # nf-seti-gitlab
 set -gq @git_status_bitbucket_icon      "" # nf-dev-bitbucket
 set -gq @git_status_forgejo_icon        "" # nf-linux-forgejo
 set -gq @git_status_default_remote_icon "" # nf-fa-code_branch
+# Custom remote patterns & icons
+set -gq @git_status_custom_remote_1_pattern ""
+set -gq @git_status_custom_remote_1_icon    ""
+set -gq @git_status_custom_remote_2_pattern ""
+set -gq @git_status_custom_remote_2_icon    ""
+set -gq @git_status_custom_remote_3_pattern ""
+set -gq @git_status_custom_remote_3_icon    ""
 
 ## Remote ######################################################################
 

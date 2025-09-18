@@ -134,6 +134,15 @@ __git_extract_status_info() {
             elif [[ $remoteUrl == *"gitlab.com"*    ]]; then remoteIcon="${git_status_gitlab_icon}"
             elif [[ $remoteUrl == *"bitbucket.org"* ]]; then remoteIcon="${git_status_bitbucket_icon}"
             elif [[ $remoteUrl == *"codeberg.org"*  ]]; then remoteIcon="${git_status_forgejo_icon}"
+            elif [[ -n               $git_status_custom_remote_1_pattern ]] &&
+                 [[ $remoteUrl == *"${git_status_custom_remote_1_pattern}"* ]]; then
+                        remoteIcon="${git_status_custom_remote_1_icon}"
+            elif [[ -n               $git_status_custom_remote_2_pattern ]] &&
+                 [[ $remoteUrl == *"${git_status_custom_remote_2_pattern}"* ]]; then
+                        remoteIcon="${git_status_custom_remote_2_icon}"
+            elif [[ -n               $git_status_custom_remote_3_pattern ]] &&
+                 [[ $remoteUrl == *"${git_status_custom_remote_3_pattern}"* ]]; then
+                        remoteIcon="${git_status_custom_remote_3_icon}"
             else
                 remoteIcon="${git_status_default_remote_icon}"
             fi

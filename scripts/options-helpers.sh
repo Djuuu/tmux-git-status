@@ -17,6 +17,13 @@ declare_options() {
     git_status_forgejo_icon=
     git_status_default_remote_icon=
 
+    git_status_custom_remote_1_pattern=
+    git_status_custom_remote_1_icon=
+    git_status_custom_remote_2_pattern=
+    git_status_custom_remote_2_icon=
+    git_status_custom_remote_3_pattern=
+    git_status_custom_remote_3_icon=
+
     git_status_upstream_prefix=
     git_status_upstream_style=
 
@@ -79,6 +86,13 @@ print_options() {
     echo "git_status_bitbucket_icon:      |$git_status_bitbucket_icon|"
     echo "git_status_forgejo_icon:        |$git_status_forgejo_icon|"
     echo "git_status_default_remote_icon: |$git_status_default_remote_icon|"
+    echo
+    echo "git_status_custom_remote_1_pattern: |$git_status_custom_remote_1_pattern|"
+    echo "git_status_custom_remote_1_icon:    |$git_status_custom_remote_1_icon|"
+    echo "git_status_custom_remote_2_pattern: |$git_status_custom_remote_2_pattern|"
+    echo "git_status_custom_remote_2_icon:    |$git_status_custom_remote_2_icon|"
+    echo "git_status_custom_remote_3_pattern: |$git_status_custom_remote_3_pattern|"
+    echo "git_status_custom_remote_3_icon:    |$git_status_custom_remote_3_icon|"
     echo
     echo "git_status_upstream_prefix:     |$git_status_upstream_prefix|"
     echo "git_status_upstream_style:      |$git_status_upstream_style|"
